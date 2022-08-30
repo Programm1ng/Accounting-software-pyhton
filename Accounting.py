@@ -3,7 +3,10 @@ from Client import Client
 from Transaction import Transaction
 from ConsoleCodes import ConsoleCodes
 from TransactionType import TransactionType
-
+from tabulate import tabulate
+import matplotlib.pyplot as plt
+import numpy as np
+import datetime
 
 class Accounting:
 
@@ -34,7 +37,8 @@ class Accounting:
                     for i in range(4, len(data)):
                         transactionArr = data[i].split('/')
                         newTransaction = Transaction(
-                            transactionArr[0], transactionArr[1], transactionArr[2])
+                            # Type, otherClientId, amount, newBalance, day, month, year
+                            transactionArr[0], transactionArr[1], transactionArr[2], transactionArr[3], transactionArr[4], transactionArr[5], transactionArr[6])
                         client.addTransaction(newTransaction)
 
                     self.clients.append(client)
@@ -59,7 +63,7 @@ class Accounting:
         transactionStr = ""
         for transaction in client.transactions:
             transactionStr += ";" + str(transaction.type) + "/" + \
-                str(transaction.otherClientId) + "/" + str(transaction.amount)
+                str(transaction.otherClientId) + "/" + str(transaction.amount) + "/" + str(transaction.newBalance) + "/" + str(transaction.day) + "/" + str(transaction.month) + "/" + str(transaction.year)
 
         if len(client.transactions) > 0:
             return transactionStr
@@ -89,67 +93,72 @@ class Accounting:
             print("Client who shall pay has not enough money")
             return
 
+        # Current date time
+        now = datetime.datetime.now()
+
+        # New Balance for fromClient
         fromClient.balance = int(fromClient.balance) - int(amount)
 
+        # Create new transaction for fromClient
         fromClientTransaction = Transaction(
-            TransactionType.PAID.value, toClientId, amount)
+            TransactionType.PAID.value, toClientId, amount, fromClient.balance, now.day, now.month, now.year)
 
+        # Add the transaction to the fromClient object
         fromClient.addTransaction(fromClientTransaction)
 
+        # New Balance for toClient
         toClient.balance = int(toClient.balance) + int(amount)
 
+        # Create new transaction for toClient
         toClientTransaction = Transaction(
-            TransactionType.RECEIVED.value, fromClientId, amount)
+            TransactionType.RECEIVED.value, fromClientId, amount, toClient.balance, now.day, now.month, now.year)
 
+        # Add the transaction to the toClient object
         toClient.addTransaction(toClientTransaction)
 
+        # Update fromClient file
         self.updateClient(fromClient)
 
+        # Update toClient file
         self.updateClient(toClient)
 
     def displayClients(self):
-        print("---------------------------------------")
-        print("Clients\n")
-        for client in self.clients:
-            print(client, "\n")
-        print("---------------------------------------")
+      headers = ["ID", "Firstname", "Lastname", "Balance"]
+      data = []
+      for client in self.clients:
+        data.append(client.id, client.firstname, client.lastname, client.balance);
+
+      print(tabulate(data, headers, tablefmt="grid"))
 
     def displayTransactions(self, clientId):
 
-        client = self.getClientById(clientId)
+      client = self.getClientById(clientId)
 
-        if (client == None):
+      if (client == None):
             print("Client not found")
             return
 
-        print("---------------------------------------")
-        print("Transactions of", client.firstname, client.lastname)
+      headers = ["Date", "Type", "Amount", "from/to", "Other Client", "New Balance"]
 
-        for transaction in client.transactions:
+      data = []
 
-            transactionTypeStr = ""
-            if int(transaction.type) == int(TransactionType.PAID.value):
-                transactionTypeStr = "Paid"
-                transactionTypeStr += ConsoleCodes.WARNING
-            else:
-                transactionTypeStr = "Received"
-                transactionTypeStr += ConsoleCodes.OKGREEN
+      print("Client: ", client.firstname, client.lastname)
 
-            amountStr = "{:.2f}".format(float(transaction.amount)) + '€'
+      for transaction in client.transactions:
+        
+        transactionType, relation = ("Paid", "to") if int(transaction.type) == int(TransactionType.PAID.value) else ("Received", "from");
+        
+        otherClient = self.getClientById(transaction.otherClientId);
+        
+        otherClientName = otherClient.firstname + " " + otherClient.lastname if otherClient != None else "Unknown"
 
-            amountStr += ConsoleCodes.ENDC
+        transactionAmountStr = "{:.2f}".format(float(transaction.amount)) + '€'
 
-            otherClient = self.getClientById(transaction.otherClientId)
+        newBalanceStr = "{:.2f}".format(float(transaction.newBalance)) + '€'
+        
+        data.append([transaction.date(), transactionType, transactionAmountStr, relation, otherClientName, newBalanceStr]);
 
-            otherClientStr = "to " if int(transaction.type) == int(
-                TransactionType.PAID.value) else "from "
-
-            otherClientStr += (otherClient.firstname + " " +
-                               otherClient.lastname) if otherClient != None else "Not found"
-
-            print(transactionTypeStr, amountStr, otherClientStr)
-
-        print("---------------------------------------")
+      print(tabulate(data, headers, tablefmt="grid"))
 
     def getClientById(self, clientId):
         for client in self.clients:
@@ -170,3 +179,23 @@ class Accounting:
             if client.id >= clientId:
                 clientId = client.id + 1
         return clientId
+
+    def displayCashflowGraph(self, clientId):
+      client = self.getClientById(clientId)
+
+      if (client == None):
+            print("Client not found")
+            return
+      
+      dates = list(map(lambda transaction : transaction.date(), client.transactions))
+
+      balances = list(map(lambda transaction : float(transaction.newBalance), client.transactions))
+
+      fig, ax = plt.subplots()
+      ax.plot(dates, balances)
+
+      ax.set(xlabel='Date', ylabel='Balance (€)',
+             title="Client: " + client.firstname + " " + client.lastname)
+      ax.grid()
+
+      plt.show()

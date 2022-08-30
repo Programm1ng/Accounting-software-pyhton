@@ -14,6 +14,7 @@ def displayMenu():
     print("2 Create a new client")
     print("3 Show transactions of a client")
     print("4 New transaction")
+    print("5 Show cashflow graph for user")
     userInput = input()
 
     if userInput == "1":
@@ -58,6 +59,13 @@ def displayMenu():
             return
 
         accounting.makeTransaction(fromClientId, toClientId, amount)
+    elif userInput == "5":
+      print("Pleae enter the id of the client who shall pay")
+      fromClientId = input()
+      if not fromClientId.isnumeric():
+        print("Not a number!")
+        return
+      accounting.displayCashflowGraph(fromClientId)
 
 
 while True:
