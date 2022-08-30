@@ -126,7 +126,7 @@ class Accounting:
       headers = ["ID", "Firstname", "Lastname", "Balance"]
       data = []
       for client in self.clients:
-        data.append(client.id, client.firstname, client.lastname, client.balance);
+        data.append([client.id, client.firstname, client.lastname, client.balance]);
 
       print(tabulate(data, headers, tablefmt="grid"))
 
